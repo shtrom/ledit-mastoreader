@@ -4,7 +4,7 @@ import { customElement, query, state } from "lit/decorators.js";
 import { commentIcon, mastodonIcon, reblogIcon, starIcon } from "./icons";
 import { getAccountName, getComments, renderMastodonMedia, renderMastodonPost, replaceEmojis } from "./mastodon";
 import { MastodonPost } from "./mastodon-api";
-import { dom, renderContentLoader, renderErrorMessage } from "./partials";
+import { dom, renderContentLoader, renderErrorMessage, safeHTML } from "./partials";
 import { globalStyles } from "./styles";
 import { addCommasToNumber, dateToText, setLinkTargetsToBlank } from "./utils";
 
@@ -120,51 +120,56 @@ export class MastoReader extends LitElement {
       if (this.thread) {
          const postToView = this.thread[0];
          return html`<div class="flex flex-col gap-4 pb-4">
-            ${header}
-            <button @click=${() => this.copyToClipboard(location.href)} class="m-auto">Share</button>
-            <div class="${this.copied ? "" : "hidden"} m-auto text-sm text-color/50">Copied sharable URL to clipboard</div>
-            <div class="flex items-center gap-2 px-4">
-               <a href="${postToView.account.url}" class="flex items-center gap-2">
-                  <img class="w-[2.5em] h-[2.5em] rounded-full cursor-pointer" src="${postToView.account.avatar_static}" />
-                  <div class="flex inline-block flex-col text-sm text-color overflow-hidden cursor-pointer">
-                     <span class="font-bold overflow-hidden text-ellipsis">${getAccountName(postToView.account)}</span>
-                     <span class="text-color/60 overflow-hidden text-ellipsis">${postToView.account.username + "@" + new URL(postToView.account.url).host}</span>
-                  </div>
-               </a>
-               <a href="${postToView.url}" class="ml-auto text-xs self-start">${dateToText(new Date(postToView.created_at).getTime())}</a>
-            </div>
-            <div class="flex justify-between gap-4 mx-auto !mb-[-0.5em]">
-               <a href="${this.url}" class="self-link flex items-center gap-1 h-[2em] cursor-pointer">
-                  <i class="icon fill-color/60">${commentIcon}</i>
-                  <span class="text-color/60" aria-label="${postToView.replies_count} comments">${addCommasToNumber(postToView.replies_count)}</span>
-               </a>
-               <a href="${this.url}" class="flex items-center gap-1 h-[2em]">
-                  <i class="icon ${postToView.reblogged ? "fill-primary" : "fill-color/60"}">${reblogIcon}</i>
-                  <span class="${postToView.reblogged ? "text-primary" : "text-color/60"}" aria-label="${postToView.reblogs_count} reblogs"
-                     >${addCommasToNumber(postToView.reblogs_count)}</span
-                  >
-               </a>
-               <a href="${this.url}" class="flex items-center gap-1 h-[2em]">
-                  <i class="icon ${postToView.favourited ? "fill-primary" : "fill-color/60"}">${starIcon}</i>
-                  <span class="${postToView.favourited ? "text-primary" : "text-color/60"}" aria-label="${postToView.favourites_count} favourites"
-                     >${addCommasToNumber(postToView.favourites_count)}</span
-                  >
-               </a>
-            </div>
-            <div class="posts flex flex-col">
+            <header>
+               ${header}
+               <button @click=${() => this.copyToClipboard(location.href)} class="m-auto">Share</button>
+               <div class="${this.copied ? "" : "hidden"} m-auto text-sm text-color/50">Copied sharable URL to clipboard</div>
+               <div id="author" class="flex items-center gap-2 px-4">
+                  <a href="${postToView.account.url}" class="flex items-center gap-2">
+                     <img class="w-[2.5em] h-[2.5em] rounded-full cursor-pointer" src="${postToView.account.avatar_static}" />
+                     <div class="flex inline-block flex-col text-sm text-color overflow-hidden cursor-pointer">
+                        <span id="author-name" "class="font-bold overflow-hidden text-ellipsis">${getAccountName(postToView.account)}</span>
+                        <span id="author-account" class="text-color/60 overflow-hidden text-ellipsis">${postToView.account.username + "@" + new URL(postToView.account.url).host}</span>
+                     </div>
+                  </a>
+                  <time>
+                     <a href="${postToView.url}" class="ml-auto text-xs self-start">${dateToText(new Date(postToView.created_at).getTime())}</a>
+                  </time>
+               </div>
+               <div class="flex justify-between gap-4 mx-auto !mb-[-0.5em]">
+                  <a href="${this.url}" class="self-link flex items-center gap-1 h-[2em] cursor-pointer">
+                     <i class="icon fill-color/60">${commentIcon}</i>
+                     <span class="text-color/60" aria-label="${postToView.replies_count} comments">${addCommasToNumber(postToView.replies_count)}</span>
+                  </a>
+                  <a href="${this.url}" class="flex items-center gap-1 h-[2em]">
+                     <i class="icon ${postToView.reblogged ? "fill-primary" : "fill-color/60"}">${reblogIcon}</i>
+                     <span class="${postToView.reblogged ? "text-primary" : "text-color/60"}" aria-label="${postToView.reblogs_count} reblogs"
+                        >${addCommasToNumber(postToView.reblogs_count)}</span
+                     >
+                  </a>
+                  <a href="${this.url}" class="flex items-center gap-1 h-[2em]">
+                     <i class="icon ${postToView.favourited ? "fill-primary" : "fill-color/60"}">${starIcon}</i>
+                     <span class="${postToView.favourited ? "text-primary" : "text-color/60"}" aria-label="${postToView.favourites_count} favourites"
+                        >${addCommasToNumber(postToView.favourites_count)}</span
+                     >
+                  </a>
+               </div>
+            </header>
+            <summary class="hidden">${safeHTML(this.thread[0].content)}</summary>
+            <article class="posts flex flex-col">
                ${map(this.thread, (post, index) => {
                   const contentDom = dom(html` <div
                      @click="${(event: MouseEvent) => this.postClicked(event, post.url)}"
                      class="content text-color hover:outline hover:outline-border/50 hover:rounded px-4 py-2"
                   >
-                     <div class="content-text">${replaceEmojis(post.content, post.emojis)}</div>
+                     <section class="content-text">${replaceEmojis(post.content, post.emojis)}</section>
                   </div>`)[0];
                   renderMastodonMedia(post, contentDom, true);
                   setLinkTargetsToBlank(contentDom);
                   return contentDom;
                })}
                <div></div>
-            </div>
+            </article>
          </div>`;
       }
 
